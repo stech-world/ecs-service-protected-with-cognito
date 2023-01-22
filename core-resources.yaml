@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ecs cluster, alb & route53
+
+Parameters:
+  VPCId:
+    Type: String
+  ALBSubnet1:
+    Type: String
+  ALBSubnet2:
+    Type: String
+  Route53HostedZone:
+    Type: String
+  DomainName:
+    Type: String
+  SubDomainName:
+    Type: String
+  SubDomainName:
+    Type: String
+  ACMCertARN:
+    Type: String
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: "Cluster"
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ecs-services
+      Subnets:
+        - Fn::ImportValue: !Sub "${ALBSubnet1}"
+        - Fn::ImportValue: !Sub "${ALBSubnet2}"
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTPS
+      Port: 443
+      Certificates:
+        - CertificateArn: !Ref ACMCertARN
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Host: !Sub ${SubDomainName}.${DomainName}
+            StatusCode: HTTP_301
+            Port: "443"
+            Protocol: HTTPS
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for loadbalancer to services on ECS
+      VpcId:
+        Fn::ImportValue: !Ref "VPCId"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          FromPort: 443
+          ToPort: 443
+        - IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          FromPort: 80
+          ToPort: 80
+
+  Route53ALBRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref Route53HostedZone
+      Name: !Sub ${SubDomainName}.${DomainName}
+      ResourceRecords:
+        - !GetAtt LoadBalancer.DNSName
+      TTL: 300
+      Type: CNAME
+
+Outputs:
+  LoadBalancerName:
+    Description: Loadbalancer Name
+    Value: !GetAtt LoadBalancer.LoadBalancerName
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancer
+
+  LoadBalancerDNS:
+    Description: Loadbalancer DNS Name
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancerDNS
+
+  LoadBalancerARN:
+    Description: Loadbalancer ARN
+    Value: !Ref LoadBalancer
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancerARN
+
+  LoadBalancerListener:
+    Description: Load Balancer Listener
+    Value: !Ref LoadBalancerListener
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancerListener
+
+  LoadBalancerSecurityGroup:
+    Description: Load Balancer Listener
+    Value: !Ref LoadBalancerSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-LoadBalancerSecurityGroup
+
+  ECSClusterArn:
+    Description: ECS cluster arn
+    Value: !GetAtt ECSCluster.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ECSClusterArn
+
+

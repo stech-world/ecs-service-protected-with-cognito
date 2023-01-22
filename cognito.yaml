@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Cognito Template
+
+Parameters:
+  DomainName:
+    Type: String
+  SubDomainName:
+    Type: String
+  UserPoolDomainName:
+    Type: String
+
+Resources:
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+      UserPoolName: User_Pool
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+      AutoVerifiedAttributes:
+        - email
+
+  CognitoClientID:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - openid
+      CallbackURLs:
+        - !Sub https://${SubDomainName}.${DomainName}/oauth2/idpresponse
+      ClientName: Client_Name
+      GenerateSecret: true
+      SupportedIdentityProviders:
+        - COGNITO
+      UserPoolId: !Ref CognitoUserPool
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref UserPoolDomainName
+      UserPoolId: !Ref CognitoUserPool
+
+Outputs:
+  CognitoUserPoolArn:
+    Description: Cognito User Pool Arn
+    Value: !GetAtt CognitoUserPool.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoUserPoolArn
+
+  CognitoClientID:
+    Description: Cognito User Pool Client Id
+    Value: !Ref CognitoClientID
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoClientID
+
+  CognitoUserPoolDomainName:
+    Description: Cognito User Pool Domain Name
+    Value: !Ref CognitoUserPoolDomain
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoUserPoolDomainName

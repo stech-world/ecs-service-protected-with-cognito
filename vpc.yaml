@@ -1,0 +1,198 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: STW Network Template
+
+Resources:
+
+  #######
+  # VPC #
+  #######
+
+  STWVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: STW vpc
+
+  STWInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: STW
+
+  STWVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref STWInternetGateway
+      VpcId: !Ref STWVpc
+
+  ###########
+  # SUBNETS #
+  ###########
+
+  STWSubnetPublic1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.101.0/24
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref STWVpc
+      AvailabilityZone: "eu-west-1a"
+      Tags:
+        - Key: Name
+          Value: STW
+
+  STWSubnetPublic2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.102.0/24
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref STWVpc
+      AvailabilityZone: "eu-west-1b"
+      Tags:
+        - Key: Name
+          Value: STW
+
+  STWSubnetPrivate1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref STWVpc
+      AvailabilityZone: "eu-west-1a"
+      Tags:
+        - Key: Name
+          Value: STW
+
+  STWSubnetPrivate2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref STWVpc
+      AvailabilityZone: "eu-west-1b"
+      Tags:
+        - Key: Name
+          Value: STW
+
+
+
+  ###############
+  # NAT GATEWAY #
+  ###############
+
+  STWNatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt STWEIP.AllocationId
+      ConnectivityType: public
+      SubnetId: !GetAtt STWSubnetPublic1.SubnetId
+      Tags:
+        - Key: Name
+          Value: STW
+
+  STWEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: STW
+
+  ###############
+  # ROUTE TABLE #
+  ###############
+
+  STWRouteTablePublic1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref STWVpc
+      Tags:
+        - Key: Name
+          Value: STW
+
+  STWVPCRoute10:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref STWInternetGateway
+      RouteTableId: !Ref STWRouteTablePublic1
+
+
+
+  STWRouteTablePrivate1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref STWVpc
+      Tags:
+        - Key: Name
+          Value: STW
+
+  STWVPCRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref STWNatGateway
+      RouteTableId: !Ref STWRouteTablePrivate1
+
+
+
+
+
+
+  STWSubnetRouteTableAssociation10:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref STWRouteTablePublic1
+      SubnetId: !Ref STWSubnetPublic1
+
+  STWSubnetRouteTableAssociation20:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref STWRouteTablePublic1
+      SubnetId: !Ref STWSubnetPublic2
+
+  STWSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref STWRouteTablePrivate1
+      SubnetId: !Ref STWSubnetPrivate1
+
+  STWSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref STWRouteTablePrivate1
+      SubnetId: !Ref STWSubnetPrivate2
+
+
+
+
+Outputs:
+  STWVpcId:
+    Description: Vpc Id
+    Value: !Ref STWVpc
+    Export:
+      Name: !Sub "${AWS::StackName}-Vpc-Id"
+  STWSubnetPublic1:
+    Description: SubnetPublic1 Id
+    Value: !Ref STWSubnetPublic1
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetPublic1-Id"
+  STWSubnetPublic2:
+    Description: SubnetPublic2 Id
+    Value: !Ref STWSubnetPublic2
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetPublic2-Id"
+  STWSubnetPrivate1:
+    Description: SubnetPrivate1 Id
+    Value: !Ref STWSubnetPrivate1
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetPrivate1-Id"
+  STWSubnetPrivate2:
+    Description: SubnetPrivate2 Id
+    Value: !Ref STWSubnetPrivate2
+    Export:
+      Name: !Sub "${AWS::StackName}-SubnetPrivate2-Id"
